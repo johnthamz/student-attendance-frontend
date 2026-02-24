@@ -1,0 +1,17 @@
+:root {
+  /* Primary school colors (from logo) */
+  --primary-blue: #1E4FA1;
+  --secondary-gold: #C9A24D;
+
+  /* Backgrounds */
+  --background-light: #F4F6FA;
+  --background-white: #FFFFFF;
+
+  /* Text colors */
+  --text-primary: #1F2933;
+  --text-secondary: #4B5563;
+
+  /* Status colors */
+  --success-green: #2E7D32;
+  --danger-red: #C62828;
+}
