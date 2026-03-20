@@ -7,6 +7,9 @@ function TeacherAttendance() {
   const [date, setDate] = useState("");
   const [sessionType, setSessionType] = useState("morning");
   const [attendanceData, setAttendanceData] = useState({});
+  const [attendanceMeta, setAttendanceMeta] = useState({});
+  const [editingMode, setEditingMode] = useState(false);
+  const [locked, setLocked] = useState(false);
 
   const token = localStorage.getItem("accessToken");
 
@@ -14,9 +17,16 @@ function TeacherAttendance() {
     fetchMyClassroom();
   }, []);
 
-  // ===============================
-  // Fetch Teacher's Assigned Classroom
-  // ===============================
+  // Reset editing & lock when date/session changes
+  useEffect(() => {
+    setLocked(false);
+    setEditingMode(false);
+    setAttendanceMeta({});
+  }, [date, sessionType]);
+
+  // =====================================
+  // FETCH CLASSROOM
+  // =====================================
   const fetchMyClassroom = async () => {
     try {
       const res = await axios.get(
@@ -26,15 +36,14 @@ function TeacherAttendance() {
 
       setClassroom(res.data);
       fetchStudents(res.data.id);
-
     } catch (error) {
-      console.error("Error fetching teacher classroom:", error.response?.data);
+      console.error("Error fetching classroom:", error.response?.data);
     }
   };
 
-  // ===============================
-  // Fetch Students (Enrollment Based)
-  // ===============================
+  // =====================================
+  // FETCH STUDENTS
+  // =====================================
   const fetchStudents = async (classroomId) => {
     try {
       const res = await axios.get(
@@ -42,7 +51,6 @@ function TeacherAttendance() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      // Transform enrollment data properly
       const formattedStudents = res.data.map((enroll) => ({
         admission_number: enroll.student,
         name: enroll.student_name
@@ -56,15 +64,14 @@ function TeacherAttendance() {
       });
 
       setAttendanceData(initialAttendance);
-
     } catch (error) {
       console.error("Error fetching students:", error.response?.data);
     }
   };
 
-  // ===============================
-  // Handle Attendance Change
-  // ===============================
+  // =====================================
+  // HANDLE MARK CHANGE
+  // =====================================
   const handleMarkChange = (admissionNumber, status) => {
     setAttendanceData({
       ...attendanceData,
@@ -72,10 +79,51 @@ function TeacherAttendance() {
     });
   };
 
-  // ===============================
-  // Submit Attendance
-  // ===============================
+  // =====================================
+  // LOAD EXISTING SESSION (WITH AUDIT)
+  // =====================================
+  const getExistingSession = async () => {
+    try {
+      const res = await axios.get(
+        `http://127.0.0.1:8000/api/attendance/history/?classroom=${classroom.id}&date=${date}&session_type=${sessionType}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      setEditingMode(true);
+
+      const existingRecords = {};
+      const metaRecords = {};
+
+      res.data.records.forEach((record) => {
+        existingRecords[record.student] = record.status;
+
+        metaRecords[record.student] = {
+          updated_at: record.updated_at,
+          marked_by: record.marked_by_username,
+        };
+      });
+
+      setAttendanceData(existingRecords);
+      setAttendanceMeta(metaRecords);
+
+      return res.data.session_id;
+
+    } catch (error) {
+      return null;
+    }
+  };
+
+  // =====================================
+  // SUBMIT OR UPDATE
+  // =====================================
   const handleSubmitAttendance = async () => {
+    if (!date) {
+      alert("Please select date first.");
+      return;
+    }
+
+    let sessionId;
+
     try {
       const sessionRes = await axios.post(
         "http://127.0.0.1:8000/api/attendance-sessions/",
@@ -87,13 +135,24 @@ function TeacherAttendance() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      const sessionId = sessionRes.data.id;
+      sessionId = sessionRes.data.id;
+      setEditingMode(false);
 
-      const records = students.map((student) => ({
-        student: student.admission_number,
-        status: attendanceData[student.admission_number],
-      }));
+    } catch (error) {
+      sessionId = await getExistingSession();
 
+      if (!sessionId) {
+        alert("Unable to create or retrieve session.");
+        return;
+      }
+    }
+
+    const records = students.map((student) => ({
+      student: student.admission_number,
+      status: attendanceData[student.admission_number],
+    }));
+
+    try {
       await axios.post(
         "http://127.0.0.1:8000/api/attendance/bulk/",
         {
@@ -103,17 +162,24 @@ function TeacherAttendance() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      alert("Attendance recorded successfully!");
-      setStudents([]);
+      alert(
+        editingMode
+          ? "Attendance updated successfully!"
+          : "Attendance recorded successfully!"
+      );
 
     } catch (error) {
-      console.error("Attendance error:", error.response?.data);
+      if (error.response?.status === 403) {
+        setLocked(true);
+      }
+
+      alert(error.response?.data?.error || "Error updating attendance");
     }
   };
 
   return (
     <div>
-      <h3>Record Attendance</h3>
+      <h3>Record / Edit Attendance</h3>
 
       {classroom && (
         <h4>
@@ -140,74 +206,128 @@ function TeacherAttendance() {
 
       {students.length > 0 && (
         <>
-          <table border="1" cellPadding="10">
+          {/* Editing Banner */}
+          {editingMode && (
+            <div
+              style={{
+                backgroundColor: "#fef3c7",
+                border: "1px solid #f59e0b",
+                padding: "10px",
+                marginBottom: "15px",
+                borderRadius: "6px",
+                color: "#92400e",
+                fontWeight: "bold",
+              }}
+            >
+              Editing existing session for {date} ({sessionType})
+            </div>
+          )}
+
+          {/* Lock Banner */}
+          {locked && (
+            <div
+              style={{
+                backgroundColor: "#fee2e2",
+                border: "1px solid #dc2626",
+                padding: "10px",
+                marginBottom: "15px",
+                borderRadius: "6px",
+                color: "#7f1d1d",
+                fontWeight: "bold",
+              }}
+            >
+              🔒 Editing locked. Attendance cannot be modified after 24 hours.
+            </div>
+          )}
+
+          <table border="1" cellPadding="8">
             <thead>
               <tr>
                 <th>Admission No</th>
                 <th>Name</th>
                 <th>Status</th>
+                <th>Last Modified By</th>
+                <th>Last Modified At</th>
               </tr>
             </thead>
             <tbody>
-              {students.map((student) => (
-                <tr key={student.admission_number}>
-                  <td>{student.admission_number}</td>
-                  <td>{student.name}</td>
-                  <td>
-                    <button
-                      onClick={() =>
-                        handleMarkChange(student.admission_number, "present")
-                      }
-                      style={{
-                        backgroundColor:
-                          attendanceData[student.admission_number] === "present"
-                            ? "green"
-                            : "#ccc",
-                        color: "white",
-                        marginRight: "5px",
-                        padding: "5px 10px",
-                        border: "none",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Present
-                    </button>
+              {students.map((student) => {
+                const meta = attendanceMeta[student.admission_number];
 
-                    <button
-                      onClick={() =>
-                        handleMarkChange(student.admission_number, "absent")
-                      }
-                      style={{
-                        backgroundColor:
-                          attendanceData[student.admission_number] === "absent"
-                            ? "red"
-                            : "#ccc",
-                        color: "white",
-                        padding: "5px 10px",
-                        border: "none",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Absent
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                return (
+                  <tr key={student.admission_number}>
+                    <td>{student.admission_number}</td>
+                    <td>{student.name}</td>
+                    <td>
+                      <button
+                        disabled={locked}
+                        onClick={() =>
+                          handleMarkChange(student.admission_number, "present")
+                        }
+                        style={{
+                          backgroundColor:
+                            attendanceData[student.admission_number] === "present"
+                              ? "green"
+                              : "#ccc",
+                          color: "white",
+                          marginRight: "5px",
+                          padding: "5px 10px",
+                          border: "none",
+                          cursor: locked ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        Present
+                      </button>
+
+                      <button
+                        disabled={locked}
+                        onClick={() =>
+                          handleMarkChange(student.admission_number, "absent")
+                        }
+                        style={{
+                          backgroundColor:
+                            attendanceData[student.admission_number] === "absent"
+                              ? "red"
+                              : "#ccc",
+                          color: "white",
+                          padding: "5px 10px",
+                          border: "none",
+                          cursor: locked ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        Absent
+                      </button>
+                    </td>
+
+                    <td>{meta?.marked_by || "-"}</td>
+                    <td>
+                      {meta?.updated_at
+                        ? new Date(meta.updated_at).toLocaleString()
+                        : "-"}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
 
           <button
             onClick={handleSubmitAttendance}
+            disabled={locked}
             style={{
               marginTop: "20px",
               padding: "10px 20px",
-              backgroundColor: "#2563eb",
+              backgroundColor: locked
+                ? "#9ca3af"
+                : editingMode
+                ? "#f59e0b"
+                : "#2563eb",
               color: "white",
               border: "none",
-              cursor: "pointer",
+              cursor: locked ? "not-allowed" : "pointer",
             }}
           >
-            Submit Attendance
+            {editingMode ? "Update Attendance" : "Submit Attendance"}
           </button>
         </>
       )}
