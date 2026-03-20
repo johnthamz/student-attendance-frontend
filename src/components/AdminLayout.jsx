@@ -8,10 +8,14 @@ function AdminLayout({ children }) {
   const isTeachersSectionActive = location.pathname.startsWith("/admin/teachers");
   const isStudentsSectionActive = location.pathname.startsWith("/admin/students");
   const isClassesSectionActive = location.pathname.startsWith("/admin/classes");
+  const isAttendanceSectionActive =
+    location.pathname.startsWith("/admin/reports") ||
+    location.pathname.startsWith("/admin/analytics");
 
   const [teachersOpen, setTeachersOpen] = useState(isTeachersSectionActive);
   const [studentsOpen, setStudentsOpen] = useState(isStudentsSectionActive);
   const [classesOpen, setClassesOpen] = useState(isClassesSectionActive);
+  const [attendanceOpen, setAttendanceOpen] = useState(isAttendanceSectionActive);
 
   useEffect(() => {
     if (isTeachersSectionActive) setTeachersOpen(true);
@@ -24,6 +28,10 @@ function AdminLayout({ children }) {
   useEffect(() => {
     if (isClassesSectionActive) setClassesOpen(true);
   }, [isClassesSectionActive]);
+
+  useEffect(() => {
+    if (isAttendanceSectionActive) setAttendanceOpen(true);
+  }, [isAttendanceSectionActive]);
 
   const handleLogout = () => {
     logoutUser();
@@ -38,7 +46,7 @@ function AdminLayout({ children }) {
   };
 
   const sidebarStyle = {
-    width: "250px",
+    width: "260px",
     background: "linear-gradient(180deg, #1e3a8a 0%, #2563eb 100%)",
     color: "white",
     padding: "24px 18px",
@@ -236,13 +244,25 @@ function AdminLayout({ children }) {
             </div>
           </div>
 
-          <Link to="/admin/reports" style={getLinkStyle("/admin/reports")}>
-            Attendance Reports
-          </Link>
+          <div style={groupWrapStyle}>
+            <button
+              type="button"
+              style={getToggleStyle(isAttendanceSectionActive)}
+              onClick={() => setAttendanceOpen((prev) => !prev)}
+            >
+              <span>Attendance</span>
+              <span style={getArrowStyle(attendanceOpen)}>▶</span>
+            </button>
 
-          <Link to="/admin/analytics" style={getLinkStyle("/admin/analytics")}>
-            Attendance Analytics
-          </Link>
+            <div style={getDropdownStyle(attendanceOpen)}>
+              <Link to="/admin/reports" style={getSubLinkStyle("/admin/reports")}>
+                Attendance Reports
+              </Link>
+              <Link to="/admin/analytics" style={getSubLinkStyle("/admin/analytics")}>
+                Analytics
+              </Link>
+            </div>
+          </div>
         </nav>
       </aside>
 
