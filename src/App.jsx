@@ -27,6 +27,7 @@ import AdminAnalyticsDashboard from "./pages/AdminAnalyticsDashboard";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import TeacherAttendance from "./pages/TeacherAttendance";
 import TeacherAttendanceHistory from "./pages/TeacherAttendanceHistory";
+import TeacherAttendanceAnalytics from "./pages/TeacherAttendanceAnalytics";
 
 // ================= ROUTE PROTECTION =================
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -39,10 +40,8 @@ import TeacherLayout from "./components/TeacherLayout";
 function App() {
   return (
     <Routes>
-      {/* ================= PUBLIC ================= */}
       <Route path="/" element={<Login />} />
 
-      {/* ================= ADMIN ================= */}
       <Route
         path="/admin"
         element={
@@ -56,7 +55,6 @@ function App() {
         }
       />
 
-      {/* ================= TEACHERS ================= */}
       <Route
         path="/admin/teachers/add"
         element={
@@ -109,7 +107,6 @@ function App() {
         }
       />
 
-      {/* ================= STUDENTS ================= */}
       <Route
         path="/admin/students"
         element={<Navigate to="/admin/students/add" replace />}
@@ -180,7 +177,6 @@ function App() {
         }
       />
 
-      {/* ================= CLASSES ================= */}
       <Route
         path="/admin/classes"
         element={<Navigate to="/admin/classes/create" replace />}
@@ -238,7 +234,6 @@ function App() {
         }
       />
 
-      {/* ================= REPORTS & ANALYTICS ================= */}
       <Route
         path="/admin/reports"
         element={
@@ -265,7 +260,6 @@ function App() {
         }
       />
 
-      {/* ================= TEACHER ================= */}
       <Route
         path="/teacher"
         element={
@@ -281,6 +275,16 @@ function App() {
 
       <Route
         path="/teacher/attendance"
+        element={<Navigate to="/teacher/attendance/mark" replace />}
+      />
+
+      <Route
+        path="/teacher/history"
+        element={<Navigate to="/teacher/attendance/view" replace />}
+      />
+
+      <Route
+        path="/teacher/attendance/mark"
         element={
           <ProtectedRoute>
             <RoleProtectedRoute allowedRole="teacher">
@@ -293,12 +297,25 @@ function App() {
       />
 
       <Route
-        path="/teacher/history"
+        path="/teacher/attendance/view"
         element={
           <ProtectedRoute>
             <RoleProtectedRoute allowedRole="teacher">
               <TeacherLayout>
                 <TeacherAttendanceHistory />
+              </TeacherLayout>
+            </RoleProtectedRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/teacher/attendance/analytics"
+        element={
+          <ProtectedRoute>
+            <RoleProtectedRoute allowedRole="teacher">
+              <TeacherLayout>
+                <TeacherAttendanceAnalytics />
               </TeacherLayout>
             </RoleProtectedRoute>
           </ProtectedRoute>
